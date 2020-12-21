@@ -10,7 +10,7 @@ def load_wav(audio_path, scaling=1, delta=1, chroma=1, mel=1):
     
       return lr.load(audio_path)
 
-def extract_mfcc(samples,sample_rate=22050, scaling=0):
+def extract_mfcc(samples,sample_rate=22050, scaling=1):
 
     #mfcc
     if(type(samples) is tuple):
@@ -32,7 +32,8 @@ def extract_mfcc_train(samples,sample_rate=22050, scaling=0):
 
 def augment_TimeStretch(samples, sample_rate= 16000,min_rate=0.8, max_rate=1.25, p=0.5):
     
-
+    if(type(samples) is tuple):
+        samples, sample_rate = samples
     augment = Compose([
         #"""Add gaussian noise to the samples"""
         #AddGaussianNoise(min_amplitude=0.001, max_amplitude=0.015, p=0.5),
@@ -49,7 +50,8 @@ def augment_TimeStretch(samples, sample_rate= 16000,min_rate=0.8, max_rate=1.25,
 
 def augment_PitchShift(samples, sample_rate= 16000,min_semitones=-4, max_semitones=4, p=0.5):
     
-
+    if(type(samples) is tuple):
+        samples, sample_rate = samples
     augment = Compose([
         #"""Add gaussian noise to the samples"""
         #AddGaussianNoise(min_amplitude=0.001, max_amplitude=0.015, p=0.5),
@@ -66,7 +68,8 @@ def augment_PitchShift(samples, sample_rate= 16000,min_semitones=-4, max_semiton
 
 def augment_Shift(samples, sample_rate= 16000,min_fraction=-0.5, max_fraction=0.5, p=0.5):
     
-
+    if(type(samples) is tuple):
+        samples, sample_rate = samples
     augment = Compose([
         #"""Add gaussian noise to the samples"""
         #AddGaussianNoise(min_amplitude=0.001, max_amplitude=0.015, p=0.5),

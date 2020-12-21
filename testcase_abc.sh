@@ -8,10 +8,8 @@ Adaptor=("CMGMM" "IGMM")
 #Adaptor=( "CMGMM" )
 
 for ds in ${Dataset[*]}; do
-    for adp in ${Adaptor[*]}; do
-	for dtt in ${Detector[*]}; do
-		python expereiment_2.py  --dataset=$ds --adaptor=$adp --detector=$dtt
-     	done
-     done
+
+	python multiflow_test1.py  --dataset=$ds 
+     	
 done
 

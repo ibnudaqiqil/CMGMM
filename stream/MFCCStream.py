@@ -2,13 +2,12 @@ import os
 import pandas as pd
 import numpy as np
 
-from models.Feature import *
 from skmultiflow.data.base_stream import Stream
 from skmultiflow.data.data_stream import check_data_consistency
 
 
-class WaveStream(Stream):
-    """ Creates a Wavestream from a file source.
+class MFCCStream(Stream):
+    """ Creates a MFCC stream from a file source.
 
     For the moment only csv files are supported, but the goal is to support different formats,
     as long as there is a function that correctly reads, interprets, and returns
@@ -28,19 +27,11 @@ class WaveStream(Stream):
     cat_features: list, optional (default=None)
         A list of indices corresponding to the location of categorical features.
 
-    allow_nan: bool, optional (default=False)
-        If True, allows NaN values in the data. Otherwise, an error is raised.
-
-    Notes
-    -----
-    The stream object provides upon request a number of samples, in a way such that old samples
-    cannot be accessed at a later time. This is done to correctly simulate the stream context.
-
     """
     _CLASSIFICATION = 'classification'
     _REGRESSION = 'regression'
 
-    def __init__(self, filepath, target_idx=-1, n_targets=1, cat_features=None, allow_nan=False, basepath = "", wave_column="mfcc", label_column="label"):
+    def __init__(self, filepath, target_idx=-1, n_targets=1, cat_features=None, allow_nan=False, wave_column="mfcc", label_column="label"):
         super().__init__()
 
         self.filepath = filepath
@@ -56,7 +47,6 @@ class WaveStream(Stream):
         self.n_classes = 0
         self.filename = ''
         self.basename = ''
-        self.basepath =basepath
 
         # Automatically infer target_idx if not passed in multi-output problems
         if self.n_targets > 1 and self.target_idx == -1:
@@ -157,7 +147,7 @@ class WaveStream(Stream):
     def _load_data(self):
         """ Reads the data provided by the user and separates the features and targets.
         """
-        print("load data")
+        #print("load data")
         try:
 
             raw_data = self.read_function(self.filepath)
@@ -175,10 +165,10 @@ class WaveStream(Stream):
          
             self.y = raw_data.label.to_numpy()
             self.target_names = "label"
-            self.X = raw_data.filename.to_numpy()
-            self.feature_names ="filename"
+            self.X = raw_data.mfcc.to_numpy()
+            self.feature_names ="mfcc"
             #print(len(self.X))
-        
+            
             self.n_num_features = 1
             
             
@@ -224,17 +214,9 @@ class WaveStream(Stream):
         #print(batch_size)
         
         try:
-            file_name = self.X[self.sample_idx - batch_size:self.sample_idx]
-            #extract the mfcc
-            current_wave = [self._load_wav(x) for x in file_name]
-            self.current_sample_x = [self._extract_mfcc(x) for x in current_wave]
-            augmented_wave = [self._augmented(x) for x in current_wave]
-            self.current_sample_x.extend(augmented_wave)
-            #print(self.current_sample_x)
+
+            self.current_sample_x = self.X[self.sample_idx - batch_size:self.sample_idx]
             self.current_sample_y = self.y[self.sample_idx - batch_size:self.sample_idx]
-            new_list = self.current_sample_y.copy()
-            self.current_sample_y = np.append(new_list,new_list)
-            #print(self.current_sample_y)
             if self.n_targets < 2:
                 self.current_sample_y = self.current_sample_y.flatten()
 
@@ -243,24 +225,6 @@ class WaveStream(Stream):
             self.current_sample_x = None
             self.current_sample_y = None
         return self.current_sample_x, self.current_sample_y
-    def _filename(self,filename):
-        return self.basepath+'/'+filename
-    def _load_wav(self, filename):
-       
-        real_filename = self._filename(filename)
-        
-        
-        return load_wav(real_filename)
-    def _extract_mfcc(self, sample):
-       
-        
-        return extract_mfcc(sample)
-    def _augmented(self, sample):
-       
-        
-        return augment_TimeStretch(sample)
-
-
 
     def has_more_samples(self):
         """ Checks if stream has more samples.

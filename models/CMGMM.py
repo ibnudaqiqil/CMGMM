@@ -94,10 +94,10 @@ class CMGMM(GaussianMixture):
 			self.means_ = best_gmm.means_
 			self.covariances_= best_gmm.covariances_
 			self.n_components = best_gmm.n_components
-			print("W awal:", self.weights_)
+			#print("W awal:", self.weights_)
 			#Compute the Cholesky decomposition of the precisions.
 			self.prune()
-			print("W Prune:", self.weights_)
+			#print("W Prune:", self.weights_)
 			self.precisions_cholesky_ = _compute_precision_cholesky(self.covariances_, self.covariance_type)
 
 	def prune(self, margin=0.009):

@@ -23,7 +23,7 @@ class CMGMMClassifier(BaseNeighbors, ClassifierMixin):
                          metric=metric,)
         self.classes = classes
         for scene_label in self.classes:	  
-            self.model[scene_label] = CMGMM(min_components=4, max_components=6)
+            self.model[scene_label] = CMGMM(min_components=4, max_components=8,pruneComponent=False)
 
     def partial_fit(self, X, y, classes=None, sample_weight=None):
         """ Partially (incrementally) fit the model.
@@ -42,20 +42,16 @@ class CMGMMClassifier(BaseNeighbors, ClassifierMixin):
 
         sample_weight: Not used.
         
-        Returns
-        -------
-        KNNClassifier
-            self
-
         """
-        #print(y)
+        #print(len(y))
       
         data_train =defaultdict()
         for scene_label in self.classes:
             data_train[scene_label]=[]
         i=0
-        for dt in X:            
-            data_train[y[i]].append(extract_mfcc(X[i]))
+        for dt in X:
+            #print(X[i])            
+            data_train[y[i]].append(X[i])
             i=i+1
         
         for key in data_train:
@@ -67,8 +63,8 @@ class CMGMMClassifier(BaseNeighbors, ClassifierMixin):
     
     def train(self,data,column_label,column_data):
         for scene_label in self.classes:
-            print ("Train:",scene_label)
-            self.model[scene_label].fit(np.vstack( data[data[column_label]==scene_label][column_data].to_numpy())) 	
+            #print ("Train:",scene_label)
+            self.model[scene_label].fit(np.vstack( data[data[column_label]==scene_label][column_data].head(500).to_numpy())) 	
     
     
     def _predict(self, data):
@@ -89,7 +85,7 @@ class CMGMMClassifier(BaseNeighbors, ClassifierMixin):
     def predict_proba(self, X):
         result=[]
         for i in len(X):
-            votes = self._predict(extract_mfcc(X[i]))
+            votes = self._predict(X[i])
             result.append(votes)
 
         return np.asarray(votes)        
@@ -110,7 +106,7 @@ class CMGMMClassifier(BaseNeighbors, ClassifierMixin):
         """
         result=[]
         for x_ in X:
-            votes = self._predict(extract_mfcc(x_))
+            votes = self._predict(x_)
             result.append(votes)
 
         return (result)
