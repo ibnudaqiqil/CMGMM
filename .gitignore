@@ -1,0 +1,7 @@
+#ignore backups
+result/
+dataset/
+ 
+# Ignore pickles
+*.pickle
+**/*.pickle
