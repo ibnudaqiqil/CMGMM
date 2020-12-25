@@ -15,6 +15,7 @@ def extract_mfcc(samples,sample_rate=22050, scaling=1):
     #mfcc
     if(type(samples) is tuple):
         samples, sample_rate = samples
+    #print(samples)
     raw_mfcc	=  lr.feature.mfcc(samples, sr=sample_rate)
     if(scaling):
         scaler = preprocessing.StandardScaler()
@@ -67,6 +68,24 @@ def augment_PitchShift(samples, sample_rate= 16000,min_semitones=-4, max_semiton
     return extract_mfcc(augmented_samples, sample_rate)
 
 def augment_Shift(samples, sample_rate= 16000,min_fraction=-0.5, max_fraction=0.5, p=0.5):
+    
+    if(type(samples) is tuple):
+        samples, sample_rate = samples
+    augment = Compose([
+        #"""Add gaussian noise to the samples"""
+        #AddGaussianNoise(min_amplitude=0.001, max_amplitude=0.015, p=0.5),
+        #TimeStretch(min_rate=min_rate, max_rate=min_rate, p=p),
+        #PitchShift(min_semitones=-min_semitones, max_semitones=max_semitones, p=p),
+        Shift(min_fraction=min_fraction, max_fraction=max_fraction, p=p),
+        #AddBackgroundNoise(),
+        #TimeMask()
+    ])
+
+    # Augment/transform/perturb the audio data
+    augmented_samples = augment(samples=samples, sample_rate=sample_rate)
+    return extract_mfcc(augmented_samples, sample_rate)
+
+def augment_TimeMask(samples, sample_rate= 16000,min_fraction=-0.5, max_fraction=0.5, p=0.5):
     
     if(type(samples) is tuple):
         samples, sample_rate = samples

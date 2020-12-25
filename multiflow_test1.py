@@ -34,10 +34,13 @@ logging.basicConfig( level=logging.WARNING)
 parser = argparse.ArgumentParser()
    
 parser.add_argument('-d', '--dataset', required=False,  default="exported_800_t1_a1.pickle" , help="Name of Detector {KD3/Adwin/PageHinkley}")
+parser.add_argument('-p', '--prune', required=False,  default=False , help="Name of Detector {KD3/Adwin/PageHinkley}")
 
 args = parser.parse_args() 
 
 test_dataset=args.dataset 
+prune_comp=args.dataset 
+
 train_dataset= pd.read_pickle("dataset/mfcc/exported_800.pickle")
 today = date.today()
 result_dir='result/multiflow/'+today.strftime("%Y-%m-%d")+'/'
@@ -50,7 +53,7 @@ mapping = dict( zip(labels,range(len(labels))) )
 train_dataset.replace({'label': mapping},inplace=True)
 
 stream_wave = MFCCStream('dataset/mfcc/'+test_dataset)
-classifier = CMGMMClassifier(classes=stream_wave.get_target_values())
+classifier = CMGMMClassifier(classes=stream_wave.get_target_values(),prune_component=prune_comp)
 classifier.train(train_dataset,'label','mfcc')
 print(stream_wave.get_data_info())
 print(stream_wave.get_target_values())

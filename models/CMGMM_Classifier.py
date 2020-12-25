@@ -16,6 +16,7 @@ class CMGMMClassifier(BaseNeighbors, ClassifierMixin):
                  metric='euclidean', 
                  classes=[],
                  detector = None,
+                 prune_component=False
                  ):
         super().__init__(n_neighbors=n_neighbors,
                          max_window_size=max_window_size,
@@ -23,7 +24,7 @@ class CMGMMClassifier(BaseNeighbors, ClassifierMixin):
                          metric=metric,)
         self.classes = classes
         for scene_label in self.classes:	  
-            self.model[scene_label] = CMGMM(min_components=4, max_components=8,pruneComponent=False)
+            self.model[scene_label] = CMGMM(min_components=5, max_components=16,pruneComponent=prune_component)
 
     def partial_fit(self, X, y, classes=None, sample_weight=None):
         """ Partially (incrementally) fit the model.
@@ -64,7 +65,7 @@ class CMGMMClassifier(BaseNeighbors, ClassifierMixin):
     def train(self,data,column_label,column_data):
         for scene_label in self.classes:
             #print ("Train:",scene_label)
-            self.model[scene_label].fit(np.vstack( data[data[column_label]==scene_label][column_data].head(500).to_numpy())) 	
+            self.model[scene_label].fit(np.vstack( data[data[column_label]==scene_label][column_data].to_numpy())) 	
     
     
     def _predict(self, data):

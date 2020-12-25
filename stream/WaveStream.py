@@ -40,7 +40,7 @@ class WaveStream(Stream):
     _CLASSIFICATION = 'classification'
     _REGRESSION = 'regression'
 
-    def __init__(self, filepath, target_idx=-1, n_targets=1, cat_features=None, allow_nan=False, basepath = "", wave_column="mfcc", label_column="label"):
+    def __init__(self, filepath, target_idx=-1, n_targets=1, cat_features=None, allow_nan=False, basepath = "", wave_column="mfcc", label_column="label",augmentation=None):
         super().__init__()
 
         self.filepath = filepath
@@ -50,6 +50,7 @@ class WaveStream(Stream):
         self.cat_features_idx = [] if self.cat_features is None else self.cat_features
         self.allow_nan = allow_nan
 
+        self.augmentation = augmentation
         self.X = None
         self.y = None
         self.task_type = None
@@ -175,8 +176,8 @@ class WaveStream(Stream):
          
             self.y = raw_data.label.to_numpy()
             self.target_names = "label"
-            self.X = raw_data.filename.to_numpy()
-            self.feature_names ="filename"
+            self.X = raw_data.mfcc.to_numpy()
+            self.feature_names ="mfcc"
             #print(len(self.X))
         
             self.n_num_features = 1
@@ -224,16 +225,18 @@ class WaveStream(Stream):
         #print(batch_size)
         
         try:
-            file_name = self.X[self.sample_idx - batch_size:self.sample_idx]
+            current_wave = self.X[self.sample_idx - batch_size:self.sample_idx]
             #extract the mfcc
-            current_wave = [self._load_wav(x) for x in file_name]
+            #xcurrent_wave = [self._load_wav(x) for x in file_name]
             self.current_sample_x = [self._extract_mfcc(x) for x in current_wave]
-            augmented_wave = [self._augmented(x) for x in current_wave]
-            self.current_sample_x.extend(augmented_wave)
+
             #print(self.current_sample_x)
             self.current_sample_y = self.y[self.sample_idx - batch_size:self.sample_idx]
-            new_list = self.current_sample_y.copy()
-            self.current_sample_y = np.append(new_list,new_list)
+            if(self.augmentation!= None):
+                augmented_wave = [self._augmented(x) for x in current_wave]
+                self.current_sample_x.extend(augmented_wave)
+                new_list = self.current_sample_y.copy()
+                self.current_sample_y = np.append(new_list,new_list)
             #print(self.current_sample_y)
             if self.n_targets < 2:
                 self.current_sample_y = self.current_sample_y.flatten()
@@ -256,9 +259,14 @@ class WaveStream(Stream):
         
         return extract_mfcc(sample)
     def _augmented(self, sample):
-       
-        
-        return augment_TimeStretch(sample)
+        if (self.augmentation == "PitchShift"):        
+            return augment_PitchShift(sample)
+        elif (self.augmentation == "TimeStretch"):        
+            return augment_TimeStretch(sample)
+        elif (self.augmentation == "Stretch"):
+            return augment_Shift(sample)
+        elif (self.augmentation == "TimeMask"):
+            return augment_TimeMask(sample)
 
 
 
