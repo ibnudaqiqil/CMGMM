@@ -46,11 +46,12 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-d', '--dataset', required=False,  default="exported_800_t2.pickle" , help="Name of Detector {KD3/Adwin/PageHinkley}")
 parser.add_argument('-p', '--prune', required=False,  default=True , help="Name of Detector {KD3/Adwin/PageHinkley}")
 
-parser.add_argument('-x', '--detector', required=False,  default="KD3" , help="Name of Detector {KD3/Adwin/PageHinkley}")
+parser.add_argument('-x', '--detector', required=False,  default="NONE" , help="Name of Detector {KD3/Adwin/PageHinkley}")
 parser.add_argument('-ws', '--window_size', required=False,  type=int, default=40, help="Parameter for Detector [Windows Length]" )
 parser.add_argument('-p1', '--p1', required=False,  type=float, default=0.01, help="Parameter for Detector [Accumulative sum threshold]" )
 parser.add_argument('-p2', '--p2', required=False,  type=float, default=0.0001, help="Parameter for Detector [Drift Thresehold]" )
 parser.add_argument('-name', '--name', required=False, default="CMGMM", help="Parameter for Detector [Drift Thresehold]" )
+parser.add_argument('-bs', '--batch', required=False, type=int, default=100, help="Parameter for Detector [Drift Thresehold]" )
 
 print("Start")
 args = parser.parse_args() 
@@ -59,11 +60,8 @@ test_dataset=args.dataset
 prune_comp=args.prune 
 model_name=args.name 
 
-train_dataset= pd.read_pickle("dataset/mfcc/exported_200.pickle")
-train_dataset2= pd.read_pickle("dataset/mfcc/exported_800.pickle")
-testDataset = train_dataset2[train_dataset2['status']==2]
-today = date.today()
-
+train_dataset= pd.read_pickle("dataset/mfcc/exported_800.pickle")
+testDataset = train_dataset[train_dataset['status']==2]
 today = date.today()
 result_dir='result/multiflow/'+today.strftime("%Y-%m-%d")+'/'
 if not os.path.exists(result_dir):
@@ -108,7 +106,7 @@ elif DETECTOR =="KD3":
     nama_model = nama_model+DETECTOR
     detector= KD3(window_size=args.window_size, 
             accumulative_threshold=args.p2, 
-            detection_threshold=args.p1,bandwidth=1)
+            detection_threshold=args.p1,bandwidth=0.75)
 else:
     detector=None
 
@@ -118,7 +116,6 @@ train_dataset.replace({'label': mapping},inplace=True)
 
 ds = args.dataset 
 ds = ds.replace("final_800_", "")
-ds = ds.replace("exported_800_", "")
 ds = ds.replace(".pickle", "")
 #ds = ds.replace("_", " ")
 nama_model = nama_model+" ("+ds+")"

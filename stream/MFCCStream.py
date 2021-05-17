@@ -31,7 +31,7 @@ class MFCCStream(Stream):
     _CLASSIFICATION = 'classification'
     _REGRESSION = 'regression'
 
-    def __init__(self, filepath, target_idx=-1, n_targets=1, cat_features=None, allow_nan=False, wave_column="mfcc", label_column="label"):
+    def __init__(self, filepath, nama_model="", additional_data=None, target_idx=-1, n_targets=1, cat_features=None, allow_nan=False, wave_column="mfcc", label_column="label"):
         super().__init__()
 
         self.filepath = filepath
@@ -40,7 +40,7 @@ class MFCCStream(Stream):
         self.cat_features = cat_features
         self.cat_features_idx = [] if self.cat_features is None else self.cat_features
         self.allow_nan = allow_nan
-
+        self.additional_data=additional_data
         self.X = None
         self.y = None
         self.task_type = None
@@ -53,7 +53,7 @@ class MFCCStream(Stream):
             self.target_idx = -self.n_targets
         self.wave_column = wave_column
         self.label_column = label_column
-         
+        self.nama_model =nama_model
         self.basename = os.path.basename(self.filepath)
         filename, extension = os.path.splitext(self.basename)
         if extension.lower() == '.csv':
@@ -150,9 +150,15 @@ class MFCCStream(Stream):
         #print("load data")
         try:
 
-            raw_data = self.read_function(self.filepath)
-
-            #check_data_consistency(raw_data, self.allow_nan)
+            raw_datax = self.read_function(self.filepath)
+            #if (self.additional_data.empty()):
+           # print(raw_datax.info())
+            #print(self.additional_data.info())
+            
+            frames = [self.additional_data, raw_datax]
+            raw_data = pd.concat(frames).reset_index(drop=True)
+            #print(raw_data.shape)
+        #check_data_consistency(raw_data, self.allow_nan)
 
             rows, cols = raw_data.shape
             #print(raw_data.shape)
@@ -221,7 +227,7 @@ class MFCCStream(Stream):
                 self.current_sample_y = self.current_sample_y.flatten()
 
         except IndexError:
-            #print("xxxxxx")
+            print("xxxxxx")
             self.current_sample_x = None
             self.current_sample_y = None
         return self.current_sample_x, self.current_sample_y
@@ -263,7 +269,7 @@ class MFCCStream(Stream):
 
     def get_data_info(self):
         if self.task_type == self._CLASSIFICATION:
-            return "{} - {} target(s), {} classes".format(self.basename, self.n_targets,
+            return "{} - {} target(s), {} classes".format(self.nama_model, self.n_targets,
                                                           self.n_classes)
         elif self.task_type == self._REGRESSION:
             return "{} - {} target(s)".format(self.basename, self.n_targets)
@@ -278,5 +284,5 @@ class MFCCStream(Stream):
             return [float] * self.n_targets
 
     def get_info(self):
-        return 'WaveStream(filename={}, target_idx={}, n_targets={}, cat_features={})' \
+        return 'MFCCStream(filename={}, target_idx={}, n_targets={}, cat_features={})' \
             .format("'" + self.basename + "'", self.target_idx, self.n_targets, self.cat_features)

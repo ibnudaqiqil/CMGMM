@@ -21,6 +21,7 @@ from detector.kd3 import KD3
 from stream.WaveStream import WaveStream 
 from stream.MFCCStream import MFCCStream 
 from models.CMGMM_Classifier import CMGMMClassifier
+from models.IGMM_Classifier import IGMMClassifier
 
 from sklearn.linear_model import SGDClassifier
 
@@ -46,11 +47,12 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-d', '--dataset', required=False,  default="exported_800_t2.pickle" , help="Name of Detector {KD3/Adwin/PageHinkley}")
 parser.add_argument('-p', '--prune', required=False,  default=True , help="Name of Detector {KD3/Adwin/PageHinkley}")
 
-parser.add_argument('-x', '--detector', required=False,  default="KD3" , help="Name of Detector {KD3/Adwin/PageHinkley}")
-parser.add_argument('-ws', '--window_size', required=False,  type=int, default=40, help="Parameter for Detector [Windows Length]" )
-parser.add_argument('-p1', '--p1', required=False,  type=float, default=0.01, help="Parameter for Detector [Accumulative sum threshold]" )
+parser.add_argument('-x', '--detector', required=False,  default="NONE" , help="Name of Detector {KD3/Adwin/PageHinkley}")
+parser.add_argument('-ws', '--window_size', required=False,  type=int, default=100, help="Parameter for Detector [Windows Length]" )
+parser.add_argument('-p1', '--p1', required=False,  type=float, default=0.08, help="Parameter for Detector [Accumulative sum threshold]" )
 parser.add_argument('-p2', '--p2', required=False,  type=float, default=0.0001, help="Parameter for Detector [Drift Thresehold]" )
 parser.add_argument('-name', '--name', required=False, default="CMGMM", help="Parameter for Detector [Drift Thresehold]" )
+parser.add_argument('-bs', '--batch', required=False, type=int, default=100, help="Parameter for Detector [Drift Thresehold]" )
 
 print("Start")
 args = parser.parse_args() 
@@ -62,13 +64,12 @@ model_name=args.name
 train_dataset= pd.read_pickle("dataset/mfcc/exported_200.pickle")
 train_dataset2= pd.read_pickle("dataset/mfcc/exported_800.pickle")
 testDataset = train_dataset2[train_dataset2['status']==2]
-today = date.today()
-
+train_dataset = train_dataset2[train_dataset2['status']==1]
 today = date.today()
 result_dir='result/multiflow/'+today.strftime("%Y-%m-%d")+'/'
 if not os.path.exists(result_dir):
     os.makedirs(result_dir)
-file_name = "CMGMM-"+test_dataset+".log"
+file_name = "CMGMM-"+model_name+test_dataset+".log"
 
 DETECTOR=args.detector#""
 nama_model = "CMGMM"
@@ -108,7 +109,7 @@ elif DETECTOR =="KD3":
     nama_model = nama_model+DETECTOR
     detector= KD3(window_size=args.window_size, 
             accumulative_threshold=args.p2, 
-            detection_threshold=args.p1,bandwidth=1)
+            detection_threshold=args.p1,bandwidth=3)
 else:
     detector=None
 
@@ -124,16 +125,17 @@ ds = ds.replace(".pickle", "")
 nama_model = nama_model+" ("+ds+")"
 stream_wave = MFCCStream('dataset/'+test_dataset,nama_model=nama_model,additional_data= testDataset)
 
-classifier = CMGMMClassifier( classes=stream_wave.get_target_values(),prune_component=prune_comp,drift_detector=detector)
+classifier = IGMMClassifier( classes=stream_wave.get_target_values(),prune_component=prune_comp,drift_detector=detector)
 classifier.train(train_dataset,'label','mfcc')
 
 
 eval = EvaluatePrequential(show_plot=True,
                            pretrain_size=0,
-                           batch_size=1,
-                           metrics=['accuracy', 'f1','running_time'],
+                           batch_size=args.batch ,
+                           metrics=['accuracy', 'precision','running_time'],
                            output_file=result_dir+file_name,
-						   #data_points_for_classification=True
+						   data_points_for_classification=False,
+                           n_wait=100 ,
 
 						   )
 

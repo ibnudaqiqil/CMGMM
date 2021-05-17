@@ -53,7 +53,45 @@ class conceptSound():
         else:
             return self.getFile(n)
 
+class rconceptSound():
+    concept_name =""
+    filename =""
+    probability = 0.5
+    df = None
+    def __init__(self, name="",file="",n_number=1, probability=0.5, base_directory="", randomize_file=False):
+        self.base_directory = base_directory
+       
+        self.database = self.base_directory + "/concept.csv"
+        self.loadDatase()
+        self.concept_name = name
+        
+        #self.filename = file
+        self.filename="/home/abelab/ibunu_i/dcase/dog.wav"
+        self.probability = probability
+        self.random = randomize_file
+        #self.filename = self.getFile(n_number)
+        
+        
+    def loadDatase(self):
+        self.df= pd.read_csv(self.database)
+    def getFile(self, n):
+        #load from dataset
+        #concept = self.df[self.df['concept']==self.concept_name]
+        if (self.random):
+            return self.getConceptRule(random_choise=True,n=1)
+        nomer = ('{0:02d}'.format(n))
 
+        return self.base_directory+'/'+self.concept_name+nomer+'.wav'
+        #print(concept.iloc[0].concept)
+    def getConceptRule(self,random_choise=False, n=1):
+        if(random_choise):
+            concept_number = int(self.df[self.df['concept']==self.concept_name]['count'])
+            n =random.randint(1, concept_number)
+            nomer = ('{0:02d}'.format(n))  
+            #print(nomer)      
+            return self.base_directory+'/'+self.concept_name+nomer+'.wav'
+        else:
+            return self.getFile(n)
 class datasetGenerator():
     target_dir= None
     dataset= None

@@ -49,7 +49,8 @@ class CMGMM(GaussianMixture):
 		self.pruneComponent=pruneComponent
 
 	def fit(self, data):
-	
+		if (len(data)<=20):
+			return 0
 		best_gmm = self.trainBestModel(data)
 		if (self.initialized==False):			
 			self.weights_ = best_gmm.weights_

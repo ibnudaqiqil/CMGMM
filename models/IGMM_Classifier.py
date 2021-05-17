@@ -1,13 +1,13 @@
 from skmultiflow.core import ClassifierMixin
 from skmultiflow.lazy.base_neighbors import BaseNeighbors
 from skmultiflow.utils.utils import *
-from models.CMGMM import CMGMM
+from models.IGMM import IGMM
 from models.Feature import *
 from collections import defaultdict
 import warnings
 import copy
 
-class CMGMMClassifier(BaseNeighbors, ClassifierMixin):
+class IGMMClassifier(BaseNeighbors, ClassifierMixin):
     model= defaultdict()
     def __init__(self,
                  n_neighbors=5,
@@ -29,7 +29,7 @@ class CMGMMClassifier(BaseNeighbors, ClassifierMixin):
         self.adaptasi = 0
 
         for scene_label in self.classes:      
-            self.model[scene_label] = CMGMM(min_components=4, max_components=20,pruneComponent=prune_component)
+            self.model[scene_label] = IGMM()
             if(drift_detector != None):
                 
                 self.drift_detector[scene_label] = copy.deepcopy(drift_detector)
@@ -91,7 +91,7 @@ class CMGMMClassifier(BaseNeighbors, ClassifierMixin):
                 self.driftData[y[i]].append(X[i])
                 isDetected = self.drift_detector[y[i]].detected_change()
                 if(isDetected):
-                    print("adaptation:",label,"=>",i,len(self.driftData[label]))
+                    #print("adaptation:",label,"=>",i,len(self.driftData[label]))
                     self.adaptasi +=1
                     drifted_data = np.array(self.driftData[label])
                     self.model[y[i]].fit(drifted_data) 

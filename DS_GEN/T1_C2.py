@@ -14,7 +14,7 @@ from pydub import AudioSegment
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--sound_path', help='path of the original sound')
-parser.add_argument('--save_path', help='path of the drifted path tobesaved to be saved')
+parser.add_argument('--type', help='path of the drifted path tobesaved to be saved')
 
 
 base_dir = "/home/abelab/ibunu_i/dcase/dataset/new_concept"
@@ -374,7 +374,10 @@ ruleset= {
 #dataset_gen.processSound("dataset_gen","bus",rule_t1)
 base_path = "/home/abelab/ibunu_i/R1/"
 filename = base_path+"dataset/exported_800.csv"
-TX ="t1"
+args = parser.parse_args() 
+DATASET=args.type
+TX =DATASET
+
 target_t=TX+"_c2"
 #read csv
 df= pd.read_csv(filename)
@@ -406,6 +409,7 @@ for label in label_kelas:
 
 #def prosesSceneSound(datasetSound,label,rule,dataset_gen):
     #prosesSceneSound(df[df['label']==l],l,rule_t1,dataset_gen)
+    indexx=0
     for index, row in df[df['label']==label].iterrows():
 
         dirpath = os.getcwd()
@@ -417,8 +421,8 @@ for label in label_kelas:
 
  
 
-
-        if (index <= 100):
+        print(indexx)
+        if (indexx <= 100):
             #print()
             rules = ""
             concept_name =""
@@ -427,26 +431,26 @@ for label in label_kelas:
             copyfile(row['file'], target_filename)
 
             
-        elif (index <= 200):
+        elif (indexx <= 200):
 
             rules = ruleset[label][TX][0].getFile(1)
             concept_name =ruleset[label][TX][0].concept_name
             dataset_gen.embedSound(row['file'],rules,target_filename,times=times,position=position,gain=gain)
 
-        elif (index <= 300):    
+        elif (indexx <= 300):    
             rules = ruleset[label][TX][1].getFile(1)
             concept_name =ruleset[label][TX][1].concept_name
             dataset_gen.embedSound(row['file'],rules,target_filename,times=times,position=position,gain=gain)
             
-        elif (index <= 400):
+        elif (indexx <= 400):
             rules = ruleset[label][TX][2].getFile(1)
             concept_name =ruleset[label][TX][2].concept_name
             dataset_gen.embedSound(row['file'],rules,target_filename,times=times,position=position,gain=gain)
-        elif (index <= 500):
+        elif (indexx <= 500):
             rules = ruleset[label][TX][1].getFile(1)
             concept_name =ruleset[label][TX][1].concept_name
             dataset_gen.embedSound(row['file'],rules,target_filename,times=times,position=position,gain=gain)
-        elif (index <= 600):
+        elif (indexx <= 600):
             rules = ruleset[label][TX][0].getFile(1)
             concept_name =ruleset[label][TX][0].concept_name
             dataset_gen.embedSound(row['file'],rules,target_filename,times=times,position=position,gain=gain)
@@ -459,7 +463,7 @@ for label in label_kelas:
             
             copyfile(row['file'], target_filename)
 
-
+        indexx=indexx+1
         #extract mfcc
         print("Extract mfcc: ",target_t,">",concept_name,">>",target_filename)
         mfcc_list.append(extract_feature_mean(target_filename))
@@ -467,14 +471,14 @@ for label in label_kelas:
         gain_list.append(gain)
         position_list.append(position)
         times_list.append(times)
-        concept_name_list.append(concept_name)
+        #concept_name_list.append(concept_name)
 
 
 df['mfcc'] = mfcc_list
 df['gain'] = gain_list
 df['position'] = position_list
 df['times'] = times_list
-df['new_concept_name'] = concept_name_list
+#df['new_concept_name'] = concept_name_list
 
-output_filename = "exported_800_"+target_t+".pickle"
+output_filename = "final_"+target_t+".pickle"
 df.to_pickle(output_filename)  

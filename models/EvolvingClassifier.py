@@ -83,9 +83,10 @@ class EvolvingClassifier():
 		for scene_label in self.label:
 			#print(data[column_label]==scene_label][column_data].to_numpy())
 			#raw_freq= (data[data[column_label]==scene_label][column_data].to_numpy())
-			mfcc = np.apply_along_axis( extract_mfcc_train, axis=1, arr=data[data[column_label]==scene_label] )
+			#mfcc = np.apply_along_axis( extract_mfcc_train, axis=1, arr=data[data[column_label]==scene_label] )
 			#print(mfcc)
-			self.model[scene_label].fit(mfcc) 		
+			#self.model[scene_label].fit(mfcc) 		
+			self.model[scene_label].fit(np.vstack( data[data[column_label]==scene_label][column_data].to_numpy()))
 	
 
 

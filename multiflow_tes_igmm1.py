@@ -21,6 +21,7 @@ from detector.kd3 import KD3
 from stream.WaveStream import WaveStream 
 from stream.MFCCStream import MFCCStream 
 from models.CMGMM_Classifier import CMGMMClassifier
+from models.IGMM_Classifier import IGMMClassifier
 
 from sklearn.linear_model import SGDClassifier
 
@@ -63,7 +64,6 @@ train_dataset= pd.read_pickle("dataset/mfcc/exported_200.pickle")
 train_dataset2= pd.read_pickle("dataset/mfcc/exported_800.pickle")
 testDataset = train_dataset2[train_dataset2['status']==2]
 today = date.today()
-
 today = date.today()
 result_dir='result/multiflow/'+today.strftime("%Y-%m-%d")+'/'
 if not os.path.exists(result_dir):
@@ -124,7 +124,7 @@ ds = ds.replace(".pickle", "")
 nama_model = nama_model+" ("+ds+")"
 stream_wave = MFCCStream('dataset/'+test_dataset,nama_model=nama_model,additional_data= testDataset)
 
-classifier = CMGMMClassifier( classes=stream_wave.get_target_values(),prune_component=prune_comp,drift_detector=detector)
+classifier = IGMMClassifier( classes=stream_wave.get_target_values(),drift_detector=detector)
 classifier.train(train_dataset,'label','mfcc')
 
 
