@@ -7,7 +7,8 @@ import copy
 from scipy import linalg as LA
 from numpy import linalg
 
-from sklearn.mixture.gaussian_mixture import _compute_precision_cholesky
+
+from sklearn.mixture._gaussian_mixture import _compute_precision_cholesky
 
 
 

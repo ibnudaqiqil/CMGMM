@@ -1,8 +1,9 @@
 
 import numpy as np
 from numpy.linalg import det
+
 from sklearn.mixture import GaussianMixture
-from sklearn.mixture.gaussian_mixture import _compute_precision_cholesky
+from sklearn.mixture._gaussian_mixture import _compute_precision_cholesky
 from sklearn.neighbors import NearestNeighbors
 import logging
 
