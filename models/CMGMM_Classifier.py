@@ -1,6 +1,7 @@
 from skmultiflow.core import ClassifierMixin
 from skmultiflow.lazy.base_neighbors import BaseNeighbors
 from skmultiflow.utils.utils import *
+from sympy import false
 from models.CMGMM import CMGMM
 from models.Feature import *
 from collections import defaultdict
@@ -18,6 +19,7 @@ class CMGMMClassifier(BaseNeighbors, ClassifierMixin):
                  detector = None,
                  prune_component=False,
                  drift_detector=None
+                 
                  ):
         super().__init__(n_neighbors=n_neighbors,
                          max_window_size=max_window_size,
@@ -27,9 +29,10 @@ class CMGMMClassifier(BaseNeighbors, ClassifierMixin):
         self.drift_detector={}
         self.driftData = {}
         self.adaptasi = 0
-
+        self.trained = False
+        self.adaptation_log=[]
         for scene_label in self.classes:      
-            self.model[scene_label] = CMGMM(min_components=4, max_components=20,pruneComponent=prune_component)
+            self.model[scene_label] = CMGMM(min_components=4, max_components=8,pruneComponent=prune_component)
             if(drift_detector != None):
                 
                 self.drift_detector[scene_label] = copy.deepcopy(drift_detector)
@@ -56,8 +59,97 @@ class CMGMMClassifier(BaseNeighbors, ClassifierMixin):
         sample_weight: Not used.
         
         """
+        if (self.trained == False):
+            data_train = defaultdict()
+            for scene_label in self.classes:
+                data_train[scene_label] = []
+            i = 0
+            for dt in X:
+                #print(X[i])
+                data_train[y[i]].append(X[i])
+                i = i+1
+
+            for key in data_train:
+                #print(key)
+                if (len(data_train[key]) > 0):
+                    #print(key,'-',len(data_train[key]))
+                    self.model[key].fit(np.array(data_train[key]))
+                    #print("n_components => ",key," = ",self.model[key].n_components
+            self.trained = True
+        elif (self.drift_detector == None):
+            data_train =defaultdict()
+            for scene_label in self.classes:
+                data_train[scene_label]=[]
+            i=0
+            for dt in X:
+                #print(X[i])            
+                data_train[y[i]].append(X[i])
+                i=i+1
+            
+            for key in data_train:
+                #print(key)
+                if (len(data_train[key])>0):
+                    #print(key,'-',len(data_train[key]))
+                    self.model[key].fit(np.array(data_train[key]))
+                    #print("n_components => ",key," = ",self.model[key].n_components) 
+        else:
+            #train if only detected
+            data_train =defaultdict()
+            for scene_label in self.classes:
+                data_train[scene_label]=[]
+            i=0
+            
+            for dt in X:
+                #print(i)            
+                label = y[i]
+                data_train[y[i]].append(X[i])
+
+                _,_,label_logls = self.predict_detail(X[i],label)
+                #print(label_logls)
+                self.drift_detector[label].add_element(label_logls)
+                self.driftData[y[i]].append(X[i])
+                isDetected = self.drift_detector[y[i]].detected_change()
+                if(isDetected):
+                    #print("adaptation:",label,"=>",i,len(self.driftData[label]))
+                    self.adaptasi +=1
+                    drifted_data = np.array(self.driftData[label])
+                    self.model[y[i]].fit(drifted_data) 
+                    self.driftData[y[i]]=[]
+                i=i+1
+
+        return self
+
+    def partial_fit_with_lower_bound(self, X, y, classes=None, sample_weight=None):
+        """ Partially (incrementally) fit the model with lower bound.
         
-        if (self.drift_detector==None):
+        Parameters
+        ----------
+        X: Numpy.ndarray of shape (n_samples, n_features)
+            The data upon which the algorithm will create its model.
+            
+        y: Array-like
+            An array-like containing the classification targets for all 
+            samples in X.
+       
+        """
+        if (self.trained==False):
+            data_train = defaultdict()
+            for scene_label in self.classes:
+                data_train[scene_label] = []
+            i = 0
+            for dt in X:
+                #print(X[i])
+                data_train[y[i]].append(X[i])
+                i = i+1
+
+            for key in data_train:
+                #print(key)
+                if (len(data_train[key]) >0):
+                    #print(key,'-',len(data_train[key]))
+                    self.model[key].fit(np.array(data_train[key]))
+                    #print("n_components => ",key," = ",self.model[key].n_components
+            self.trained = True
+        elif (self.drift_detector==None):
             data_train =defaultdict()
             for scene_label in self.classes:
                 data_train[scene_label]=[]
@@ -103,9 +195,12 @@ class CMGMMClassifier(BaseNeighbors, ClassifierMixin):
     def train(self,data,column_label,column_data):
         for scene_label in self.classes:
             #print ("Train:",scene_label)
-            self.model[scene_label].fit(np.vstack( data[data[column_label]==scene_label][column_data].to_numpy()))  
+            X = np.vstack(data[data[column_label] ==
+                               scene_label][column_data].to_numpy())
+           
+            self.model[scene_label].fit(X)
             #print("n_components => ",scene_label," = ",self.model[scene_label].n_components)  
-
+        self.trained = True
     def predict_detail(self, data,label):
         '''
          Memperediksi satu data mfcc
@@ -166,3 +261,4 @@ class CMGMMClassifier(BaseNeighbors, ClassifierMixin):
             result.append(votes)
 
         return (result)
+        

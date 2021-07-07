@@ -1,3 +1,10 @@
+import sys
+import os
+PACKAGE_PARENT = '..'
+SCRIPT_DIR = os.path.dirname(os.path.realpath(
+    os.path.join(os.getcwd(), os.path.expanduser(__file__))))
+sys.path.append(os.path.normpath(os.path.join(SCRIPT_DIR, PACKAGE_PARENT)))
+
 import itertools
 
 import numpy as np
@@ -44,7 +51,7 @@ def plot_results(X, Y_, means, covariances, index, title):
 
 
 # Number of samples per component
-n_samples = 500
+n_samples = 1000
 
 # Generate random sample, two components
 np.random.seed(0)
@@ -59,7 +66,7 @@ gmm2 = CMGMM(min_components=2, max_components=5)
 
 
     # Model computed with three Gaussians
-n_samples2 = 150
+n_samples2 = 1500
 C2 = np.array([[0., -0.1], [0.2, 0.4]])
 X2 = np.r_[np.dot(np.random.randn(n_samples2, 2), 0.5 * C),
            .7 * np.random.randn(n_samples, 2) + np.array([-5, 4]),
