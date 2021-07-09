@@ -1,7 +1,12 @@
+import sys
 import os
+import traceback
+
 import warnings
 import re
+import numpy as np
 from timeit import default_timer as timer
+from sklearn.metrics import accuracy_score
 
 from numpy import unique
 
@@ -178,6 +183,7 @@ class WeakEvaluatePrequential(StreamEvaluator):
                  output_file=None,
                  show_plot=False,
                  restart_stream=True,
+                 label_size=0.5,
                  data_points_for_classification=False):
 
         super().__init__()
@@ -190,7 +196,9 @@ class WeakEvaluatePrequential(StreamEvaluator):
         self.output_file = output_file
         self.show_plot = show_plot
         self.data_points_for_classification = data_points_for_classification
-
+        self.psudo_label_accuracy=[]
+        
+        self.label_size= label_size
         if not self.data_points_for_classification:
             if metrics is None:
                 self.metrics = [constants.ACCURACY, constants.KAPPA]
@@ -273,6 +281,7 @@ class WeakEvaluatePrequential(StreamEvaluator):
         class as well.
 
         """
+        
         self._start_time = timer()
         self._end_time = timer()
         print('Prequential Evaluation')
@@ -283,6 +292,8 @@ class WeakEvaluatePrequential(StreamEvaluator):
             actual_max_samples = self.max_samples
 
         first_run = True
+       
+        self.psudo_label_accuracy = [[] for _ in range(self.n_models)]
         if self.pretrain_size > 0:
             print('Pre-training on {} sample(s).'.format(self.pretrain_size))
 
@@ -321,11 +332,14 @@ class WeakEvaluatePrequential(StreamEvaluator):
                & (self.stream.has_more_samples())):
             try:
 				#only 70%
-                self.real_batch_size = self.batch_size*0.7
-                self.pseudo_batch_size = self.batch_size*0.3
-
-                X, y = self.stream.next_sample(self.real_batch_size )
+                self.real_batch_size = int(self.batch_size*self.label_size)
+                self.pseudo_batch_size = int(self.batch_size*1-(self.label_size))
+ 
+                #evaluate Real label
+                X, y = self.stream.next_sample(self.real_batch_size)
 				#with label
+                label_to_learn = []
+
                 if X is not None and y is not None:
                     # Test
                     prediction = [[] for _ in range(self.n_models)]
@@ -333,7 +347,8 @@ class WeakEvaluatePrequential(StreamEvaluator):
                         try:
                             # Testing time
                             self.running_time_measurements[i].compute_testing_time_begin()
-                            prediction[i].extend(self.model[i].predict(X))
+                            _hasil_prediksi = self.model[i].predict(X)
+                            prediction[i].extend(_hasil_prediksi)
                             self.running_time_measurements[i].compute_testing_time_end()
                         except TypeError:
                             raise TypeError("Unexpected prediction value from {}"
@@ -381,27 +396,36 @@ class WeakEvaluatePrequential(StreamEvaluator):
                 
                 
                 #without label start
-                X, y = self.stream.next_sample(self.psudo_batch_size)
-                if X is not None and y is not None:
+                X2, y2 = self.stream.next_sample(self.pseudo_batch_size)
+                if X2 is not None and y is not None:
                     # Test
                     psudo_prediction = [[] for _ in range(self.n_models)]
+                    #start psudo 
+                    #print("predict psudo label")
                     for i in range(self.n_models):
                         try:
                             # generate the psudolabel
                             self.running_time_measurements[i].compute_testing_time_begin()
-                            psudo_prediction[i].extend(self.model[i].predict(X))
+                            _hasil_prediksi = self.model[i].predict(X2)
+                            psudo_prediction[i].extend(_hasil_prediksi)
+                            #print(self.psudo_label_accuracy[i])
+                            _acc = accuracy_score(y2, _hasil_prediksi)
+                            if (not np.isnan(_acc)):
+                                self.psudo_label_accuracy[i].append(_acc)
+                            label_to_learn.append(_hasil_prediksi)
                             self.running_time_measurements[i].compute_testing_time_end()
                         except TypeError:
                             raise TypeError("Unexpected prediction value from {}".format(type(self.model[i]).__name__))
-                    self.global_sample_count += self.psudo_batch_size
-
+                    self.global_sample_count += self.pseudo_batch_size
+                    #logging psudolabel accuracy
+                  
                     #evaluate the psudo label
                     for j in range(self.n_models):
                         for i in range(len(psudo_prediction[0])):
-                            self.mean_eval_measurements[j].add_result(y[i], psudo_prediction[j][i])
-                            self.current_eval_measurements[j].add_result(y[i], psudo_prediction[j][i])
+                            self.mean_eval_measurements[j].add_result(y2[i], psudo_prediction[j][i])
+                            self.current_eval_measurements[j].add_result(y2[i], psudo_prediction[j][i])
                     self._check_progress(actual_max_samples)
-
+                    
                     # Train
                     if first_run:
                         for i in range(self.n_models):
@@ -409,12 +433,12 @@ class WeakEvaluatePrequential(StreamEvaluator):
                                self._task_type != constants.MULTI_TARGET_REGRESSION:
                                 # Accounts for the moment of training beginning
                                 self.running_time_measurements[i].compute_training_time_begin()
-                                self.model[i].partial_fit_with_lower_bound(X, y, self.stream.target_values)
+                                self.model[i].partial_fit(X2, y2, self.stream.target_values)
                                 # Accounts the ending of training
                                 self.running_time_measurements[i].compute_training_time_end()
                             else:
                                 self.running_time_measurements[i].compute_training_time_begin()
-                                self.model[i].partial_fit_with_lower_bound(X, y)
+                                self.model[i].partial_fit(X2, y2)
                                 self.running_time_measurements[i].compute_training_time_end()
 
                             # Update total running time
@@ -423,7 +447,15 @@ class WeakEvaluatePrequential(StreamEvaluator):
                     else:
                         for i in range(self.n_models):
                             self.running_time_measurements[i].compute_training_time_begin()
-                            self.model[i].partial_fit(X, y)
+                            #if(hasattr(self.model[i], 'partial_weakfit')):
+                            #    self.model[i].partial_weakfit(X2, psudo_prediction[i],X,y)
+                            #else:
+                            #    self.model[i].partial_fit(X2, psudo_prediction[i])
+                            #print("noisy adaptaion")
+
+                            #self.model[i].partial_weakfit(Xtot, Ytot)
+                            self.model[i].partial_weakfit(
+                                X2, psudo_prediction[i], X, y)
                             self.running_time_measurements[i].compute_training_time_end()
                             self.running_time_measurements[i].update_time_measurements(self.batch_size)
 
@@ -438,9 +470,13 @@ class WeakEvaluatePrequential(StreamEvaluator):
 
 
                 self._end_time = timer()
-            except BaseException as exc:
-                print(exc)
-                if exc is KeyboardInterrupt:
+             
+            except BaseException as e:
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+                print(exc_type, fname, exc_tb.tb_lineno)
+                traceback.print_exc()
+                if e is KeyboardInterrupt:
                     self._update_metrics()
                 break
 

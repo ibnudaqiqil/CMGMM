@@ -31,15 +31,72 @@ class CMGMMClassifier(BaseNeighbors, ClassifierMixin):
         self.adaptasi = 0
         self.trained = False
         self.adaptation_log=[]
+        self.data_train = defaultdict()
         for scene_label in self.classes:      
             self.model[scene_label] = CMGMM(min_components=4, max_components=8,pruneComponent=prune_component)
-            if(drift_detector != None):
-                
+            self.data_train[scene_label] = []
+            if(drift_detector != None):                
                 self.drift_detector[scene_label] = copy.deepcopy(drift_detector)
                 self.driftData[scene_label]  = []
         if(drift_detector == None):
             self.drift_detector=drift_detector
+        
 
+    
+            
+
+    def partial_weakfit(self,X_psudo,y_pseudo,X_real,y_real):
+
+        #inisialisasi data holder
+        Xtot = np.concatenate((X_psudo, X_real))
+        Ytot = np.concatenate((y_pseudo, y_real))
+
+
+        
+        #susun data true label
+        i = 0
+        for dt in Xtot:
+            self.data_train[Ytot[i]].append(Xtot[i])
+            i = i+1
+       
+        #jika tidak memiliki detector langsung adaptasii
+        
+        if (self.drift_detector == None): 
+            #print("passive adapt")
+            for label in self.data_train:
+                if (len(self.data_train[label]) > 8):
+                    self.model[label].fit(np.array(self.data_train[label]))
+                    self.data_train[label]=[]
+                    self.adaptasi += 1
+                else:
+                    print(label,"--nodata")
+            self.trained = True            
+        else:
+            #train if only detected
+            
+            data_train = defaultdict()
+            for scene_label in self.classes:
+                data_train[scene_label] = []
+            
+            i = 0
+            for dt in Xtot:
+                predicted_label, highest_prob, label_logls = self.predict_detail(
+                    Xtot[i], Ytot[i])
+                #print(label_logls)
+                #if (predicted_label != y_pseudo[i]):
+                #    continue
+                self.drift_detector[Ytot[i]].add_element(label_logls)
+                
+                self.driftData[Ytot[i]].append(Xtot[i])
+                isDetected = self.drift_detector[Ytot[i]].detected_change()
+                if(isDetected):
+                    self.adaptasi += 1
+                    drifted_data = np.array(self.driftData[Ytot[i]])
+                    self.model[Ytot[i]].fit(drifted_data)
+                    self.driftData[Ytot[i]] = []
+                i = i+1
+
+        return self
 
     def partial_fit(self, X, y, classes=None, sample_weight=None):
         """ Partially (incrementally) fit the model.
@@ -75,6 +132,8 @@ class CMGMMClassifier(BaseNeighbors, ClassifierMixin):
                     #print(key,'-',len(data_train[key]))
                     self.model[key].fit(np.array(data_train[key]))
                     #print("n_components => ",key," = ",self.model[key].n_components
+                else:
+                    print(key,"--nodata")
             self.trained = True
         elif (self.drift_detector == None):
             data_train =defaultdict()
@@ -110,7 +169,7 @@ class CMGMMClassifier(BaseNeighbors, ClassifierMixin):
                 self.driftData[y[i]].append(X[i])
                 isDetected = self.drift_detector[y[i]].detected_change()
                 if(isDetected):
-                    #print("adaptation:",label,"=>",i,len(self.driftData[label]))
+                    print("adaptation:",label,"=>",i,len(self.driftData[label]))
                     self.adaptasi +=1
                     drifted_data = np.array(self.driftData[label])
                     self.model[y[i]].fit(drifted_data) 
@@ -183,7 +242,7 @@ class CMGMMClassifier(BaseNeighbors, ClassifierMixin):
                 self.driftData[y[i]].append(X[i])
                 isDetected = self.drift_detector[y[i]].detected_change()
                 if(isDetected):
-                    print("adaptation:",label,"=>",i,len(self.driftData[label]))
+                    #print("adaptation:",label,"=>",i,len(self.driftData[label]))
                     self.adaptasi +=1
                     drifted_data = np.array(self.driftData[label])
                     self.model[y[i]].fit(drifted_data) 
@@ -208,6 +267,8 @@ class CMGMMClassifier(BaseNeighbors, ClassifierMixin):
         highest_prob=-np.inf
         for scene_label in self.classes:
             #compute likelihood to the labeled model
+            if (self.model[scene_label].initialized==False):
+                return label, 0, 0
             logls = self.model[scene_label].score([data])
             #select the highest likelihood as the predicted
             if(label==scene_label):
