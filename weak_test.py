@@ -6,6 +6,7 @@ from skmultiflow.lazy import SAMKNNClassifier
 from skmultiflow.lazy import KNNADWINClassifier
 from stream.MFCCStream import MFCCStream
 from stream.WaveStream import WaveStream
+from skmultiflow.prototype import RobustSoftLearningVectorQuantization
 from datetime import date
 import os
 import logging
@@ -49,8 +50,21 @@ print("dataset:"+"datasets/"+test_dataset+'.csv')
 stream = FileStream("datasets/"+test_dataset+'.csv')
 #print(stream.get_target_values())
 
+
+onlineBoosting = OnlineBoostingClassifier()
+knn_adwin = KNNADWINClassifier(
+    n_neighbors=8, leaf_size=40, max_window_size=1000)
+SAMKNN = SAMKNNClassifier(n_neighbors=10, weighting='distance', max_window_size=500,
+                          stm_size_option='maxACCApprox', use_ltm=False)
+learn_pp_nse = LearnPPNSEClassifier()
 SGD = SGDClassifier()
-eval = WeakEvaluatePrequential(show_plot=True,
+rslvq = RobustSoftLearningVectorQuantization()
+#CMMM2 = CMGMMClassifier(classes=stream.get_target_values(), prune_component=True, drift_detector=None)
+#CMMM.train(train_dataset, 'label', 'mfcc')
+#
+
+
+eval = WeakEvaluatePrequential(show_plot=False,
                             pretrain_size=1500,
                            batch_size=200,
                            label_size= float(args.label_size),
@@ -59,18 +73,12 @@ eval = WeakEvaluatePrequential(show_plot=True,
 #exit()
 detector = KD3(window_size=500)
 #detector = ADWIN()
-CMMM = CMGMMClassifier(classes=stream.get_target_values(), prune_component=True, drift_detector=None)
-SGD = SGDClassifier()
-knn_adwin = KNNADWINClassifier(
-    n_neighbors=8, leaf_size=40, max_window_size=1000)
-SAMKNN = SAMKNNClassifier(n_neighbors=10, weighting='distance', max_window_size=500,
-                          stm_size_option='maxACCApprox', use_ltm=False)
-learn_pp_nse = LearnPPNSEClassifier()
-#CMMM2 = CMGMMClassifier(classes=stream.get_target_values(), prune_component=True, drift_detector=None)
-#CMMM.train(train_dataset, 'label', 'mfcc')
-#
-knn = KNNClassifier(n_neighbors=8, max_window_size=100, leaf_size=40)
-eval.evaluate(stream=stream, model=[CMMM], model_names=['CMGMM'])
+CMMM = CMGMMClassifier(classes=stream.get_target_values(), 
+                            prune_component=True, 
+                            drift_detector=None)
+
+eval.evaluate(stream=stream, model=[
+              CMMM, SAMKNN, learn_pp_nse,   SGD], model_names=['CMGMM', 'SAMKNN', 'LearnPPNSE',  "SVM-SGD"])
 
 print(CMMM.adaptasi)
 print(eval.psudo_label_accuracy[0])

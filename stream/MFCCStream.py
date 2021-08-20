@@ -4,7 +4,7 @@ import numpy as np
 
 from skmultiflow.data.base_stream import Stream
 from skmultiflow.data.data_stream import check_data_consistency
-
+from sklearn.preprocessing import LabelEncoder
 
 class MFCCStream(Stream):
     """ Creates a MFCC stream from a file source.
@@ -154,6 +154,8 @@ class MFCCStream(Stream):
             #if (self.additional_data.empty()):
            # print(raw_datax.info())
             #print(self.additional_data.info())
+            labelencoder = LabelEncoder()
+            raw_datax['label'] = labelencoder.fit_transform(raw_datax['label'])
             
             frames = [self.additional_data, raw_datax]
             raw_data = pd.concat(frames).reset_index(drop=True)
@@ -168,7 +170,9 @@ class MFCCStream(Stream):
             mapping = dict( zip(labels,range(len(labels))) )
             raw_data.replace({'label': mapping},inplace=True)
 
-         
+            raw_data = raw_data.drop(raw_data[raw_data.label >= 5].index)
+            print("label:",raw_data['label'].unique())
+
             self.y = raw_data.label.to_numpy()
             self.target_names = "label"
             self.X = raw_data.mfcc.to_numpy()

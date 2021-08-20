@@ -5,6 +5,9 @@ from sympy import false
 from models.CMGMM import CMGMM
 from models.Feature import *
 from collections import defaultdict
+from sklearn.neighbors import KNeighborsClassifier
+
+
 import warnings
 import copy
 
@@ -41,9 +44,136 @@ class CMGMMClassifier(BaseNeighbors, ClassifierMixin):
         if(drift_detector == None):
             self.drift_detector=drift_detector
         
+    def partial_weakfit_with_verification(self, X_psudo, y_pseudo, X_real, y_real):
 
-    
-            
+        #inisialisasi data holder
+        Xtot = np.concatenate((X_psudo, X_real))
+        Ytot = np.concatenate((y_pseudo, y_real))
+
+        #susun data true label
+        i = 0
+        for dt in X_real:
+            self.data_train[y_real[i]].append(X_real[i])
+            i = i+1
+
+        #jika tidak memiliki detector langsung adaptasii
+        neigh = KNeighborsClassifier(n_neighbors=3)
+        neigh.fit(X_real, y_real)
+        print(len(X_psudo))
+        y_verification =[]
+        if (len(X_psudo)>0):
+            y_verification = neigh.predict(X_psudo)
+        i = 0
+        ver=0
+        for dt in X_psudo:
+            if (y_verification[i]==y_pseudo[i]):
+                self.data_train[Ytot[i]].append(X_psudo[i])
+                ver = ver+1
+            i = i+1
+        
+        if (self.drift_detector == None):
+            #print("passive adapt")
+            for label in self.data_train:
+                if (len(self.data_train[label]) > 8):
+                    print(len(y_pseudo), "=>", ver)
+                    self.model[label].fit(np.array(self.data_train[label]))
+                    self.data_train[label] = []
+                    self.adaptasi += 1
+                else:
+                    print(label,"--nodata")
+                    print(self.data_train[label])
+            self.trained = True
+        else:
+            #train if only detected
+
+            data_train = defaultdict()
+            for scene_label in self.classes:
+                data_train[scene_label] = []
+
+            i = 0
+            for dt in Xtot:
+                predicted_label, highest_prob, label_logls = self.predict_detail(
+                    Xtot[i], Ytot[i])
+                #print(label_logls)
+                #if (predicted_label != y_pseudo[i]):
+                #    continue
+                self.drift_detector[Ytot[i]].add_element(label_logls)
+
+                self.driftData[Ytot[i]].append(Xtot[i])
+                isDetected = self.drift_detector[Ytot[i]].detected_change()
+                if(isDetected):
+                    self.adaptasi += 1
+                    drifted_data = np.array(self.driftData[Ytot[i]])
+                    self.model[Ytot[i]].fit(drifted_data)
+                    self.driftData[Ytot[i]] = []
+                i = i+1
+
+        return self
+
+    def partial_weakfit_with_hedge(self, X_psudo, y_pseudo, X_real, y_real):
+        #inisialisasi data holder
+        Xtot = np.concatenate((X_psudo, X_real))
+        Ytot = np.concatenate((y_pseudo, y_real))
+
+        #susun data true label
+        i = 0
+        for dt in X_real:
+            self.data_train[y_real[i]].append(X_real[i])
+            i = i+1
+
+        #jika tidak memiliki detector langsung adaptasii
+        neigh = KNeighborsClassifier(n_neighbors=3)
+        y_verification = y_pseudo
+        neigh.fit(X_real, y_real)
+        if (len(X_psudo) > 0):
+            y_verification = neigh.predict(X_psudo)
+        i = 0
+        ver = 0
+        for dt in X_psudo:
+            if (y_verification[i] == y_pseudo[i]):
+                self.data_train[Ytot[i]].append(X_psudo[i])
+                ver = ver+1
+            i = i+1
+
+        if (self.drift_detector == None):
+            #print("passive adapt")
+            for label in self.data_train:
+                if (len(self.data_train[label]) > 8):
+                    print(len(y_pseudo), "=>", ver)
+                    self.model[label].fit(np.array(self.data_train[label]))
+                    self.data_train[label] = []
+                    self.adaptasi += 1
+                else:
+                    print(label, "--nodata")
+            self.trained = True
+        else:
+            #train if only detected
+
+            data_train = defaultdict()
+            for scene_label in self.classes:
+                data_train[scene_label] = []
+
+            i = 0
+            for dt in Xtot:
+                predicted_label, highest_prob, label_logls = self.predict_detail(
+                    Xtot[i], Ytot[i])
+                #print(label_logls)
+                #if (predicted_label != y_pseudo[i]):
+                #    continue
+                self.drift_detector[Ytot[i]].add_element(label_logls)
+
+                self.driftData[Ytot[i]].append(Xtot[i])
+                isDetected = self.drift_detector[Ytot[i]].detected_change()
+                if(isDetected):
+                    self.adaptasi += 1
+                    drifted_data = np.array(self.driftData[Ytot[i]])
+                    self.model[Ytot[i]].fit(drifted_data)
+                    self.driftData[Ytot[i]] = []
+                i = i+1
+
+        return self
+
+
 
     def partial_weakfit(self,X_psudo,y_pseudo,X_real,y_real):
 
@@ -69,7 +199,8 @@ class CMGMMClassifier(BaseNeighbors, ClassifierMixin):
                     self.data_train[label]=[]
                     self.adaptasi += 1
                 else:
-                    print(label,"--nodata")
+                    print(label,"--nodataxxx")
+                    print(self.data_train[label])
             self.trained = True            
         else:
             #train if only detected
@@ -253,9 +384,8 @@ class CMGMMClassifier(BaseNeighbors, ClassifierMixin):
     
     def train(self,data,column_label,column_data):
         for scene_label in self.classes:
-            #print ("Train:",scene_label)
-            X = np.vstack(data[data[column_label] ==
-                               scene_label][column_data].to_numpy())
+            print ("Train:",scene_label)
+            X = np.vstack(data[data[column_label]==scene_label][column_data].to_numpy())
            
             self.model[scene_label].fit(X)
             #print("n_components => ",scene_label," = ",self.model[scene_label].n_components)  

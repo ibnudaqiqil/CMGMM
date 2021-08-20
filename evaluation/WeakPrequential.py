@@ -13,163 +13,13 @@ from numpy import unique
 from skmultiflow.evaluation.base_evaluator import StreamEvaluator
 from skmultiflow.utils import constants
 
+from sklearn.semi_supervised import LabelSpreading
+
+def averageSmooth(data, windowLen=40):
+    return np.convolve(data, np.ones((windowLen,))/windowLen, mode='same')
 
 class WeakEvaluatePrequential(StreamEvaluator):
     """ The prequential evaluation method or interleaved test-then-train method.
-
-    An alternative to the traditional holdout evaluation, inherited from
-    batch setting problems.
-
-    The prequential evaluation is designed specifically for stream settings,
-    in the sense that each sample serves two purposes, and that samples are
-    analysed sequentially, in order of arrival, and become immediately
-    inaccessible.
-
-    This method consists of using each sample to test the model, which means
-    to make a predictions, and then the same sample is used to train the model
-    (partial fit). This way the model is always tested on samples that it
-    hasn't seen yet.
-
-    Parameters
-    ----------
-    n_wait: int (Default: 200)
-        The number of samples to process between each test. Also defines when to update the plot if `show_plot=True`.
-        Note that setting `n_wait` too small can significantly slow the evaluation process.
-
-    max_samples: int (Default: 100000)
-        The maximum number of samples to process during the evaluation.
-
-    batch_size: int (Default: 1)
-        The number of samples to pass at a time to the model(s).
-
-    pretrain_size: int (Default: 200)
-        The number of samples to use to train the model before starting the evaluation. Used to enforce a 'warm' start.
-
-    max_time: float (Default: float("inf"))
-        The maximum duration of the simulation (in seconds).
-
-    metrics: list, optional (Default: ['accuracy', 'kappa'])
-        | The list of metrics to track during the evaluation. Also defines the metrics that will be displayed in plots
-          and/or logged into the output file. Valid options are
-        | **Classification**
-        | 'accuracy'
-        | 'kappa'
-        | 'kappa_t'
-        | 'kappa_m'
-        | 'true_vs_predicted'
-        | 'precision'
-        | 'recall'
-        | 'f1'
-        | 'gmean'
-        | **Multi-target Classification**
-        | 'hamming_score'
-        | 'hamming_loss'
-        | 'exact_match'
-        | 'j_index'
-        | **Regression**
-        | 'mean_square_error'
-        | 'mean_absolute_error'
-        | 'true_vs_predicted'
-        | **Multi-target Regression**
-        | 'average_mean_squared_error'
-        | 'average_mean_absolute_error'
-        | 'average_root_mean_square_error'
-        | **General purpose** (no plot generated)
-        | 'running_time'
-        | 'model_size'
-
-    output_file: string, optional (Default: None)
-        File name to save the summary of the evaluation.
-
-    show_plot: bool (Default: False)
-        If True, a plot will show the progress of the evaluation. Warning: Plotting can slow down the evaluation
-        process.
-
-    restart_stream: bool, optional (default: True)
-        If True, the stream is restarted once the evaluation is complete.
-
-    data_points_for_classification: bool(Default: False)
-        If True, the visualization used is a cloud of data points (only works for classification) and default
-        performance metrics are ignored. If specific metrics are required, then they *must* be explicitly set
-        using the ``metrics`` attribute.
-
-    Notes
-    -----
-    1. This evaluator can process a single learner to track its performance; or multiple learners  at a time, to
-       compare different models on the same stream.
-
-    2. The metric 'true_vs_predicted' is intended to be informative only. It corresponds to evaluations at a specific
-       moment which might not represent the actual learner performance across all instances.
-
-    3. The metrics `running_time` and `model_size ` are not plotted when the `show_plot` option is set. Only their
-       current value is displayed at the bottom of the figure. However, their values over the evaluation are written
-       into the resulting csv file if the `output_file` option is set.
-
-    Examples
-    --------
-    >>> # The first example demonstrates how to evaluate one model
-    >>> from skmultiflow.data import SEAGenerator
-    >>> from skmultiflow.trees import HoeffdingTreeClassifier
-    >>> from skmultiflow.evaluation import EvaluatePrequential
-    >>>
-    >>> # Set the stream
-    >>> stream = SEAGenerator(random_state=1)
-    >>>
-    >>> # Set the model
-    >>> ht = HoeffdingTreeClassifier()
-    >>>
-    >>> # Set the evaluator
-    >>>
-    >>> evaluator = EvaluatePrequential(max_samples=10000,
-    >>>                                 max_time=1000,
-    >>>                                 show_plot=True,
-    >>>                                 metrics=['accuracy', 'kappa'])
-    >>>
-    >>> # Run evaluation
-    >>> evaluator.evaluate(stream=stream, model=ht, model_names=['HT'])
-
-    >>> # The second example demonstrates how to compare two models
-    >>> from skmultiflow.data import SEAGenerator
-    >>> from skmultiflow.trees import HoeffdingTreeClassifier
-    >>> from skmultiflow.bayes import NaiveBayes
-    >>> from skmultiflow.evaluation import EvaluateHoldout
-    >>>
-    >>> # Set the stream
-    >>> stream = SEAGenerator(random_state=1)
-    >>>
-    >>> # Set the models
-    >>> ht = HoeffdingTreeClassifier()
-    >>> nb = NaiveBayes()
-    >>>
-    >>> evaluator = EvaluatePrequential(max_samples=10000,
-    >>>                                 max_time=1000,
-    >>>                                 show_plot=True,
-    >>>                                 metrics=['accuracy', 'kappa'])
-    >>>
-    >>> # Run evaluation
-    >>> evaluator.evaluate(stream=stream, model=[ht, nb], model_names=['HT', 'NB'])
-
-    >>> # The third example demonstrates how to evaluate one model
-    >>> # and visualize the predictions using data points.
-    >>> # Note: You can not in this case compare multiple models
-    >>> from skmultiflow.data import SEAGenerator
-    >>> from skmultiflow.trees import HoeffdingTreeClassifier
-    >>> from skmultiflow.evaluation import EvaluatePrequential
-    >>> # Set the stream
-    >>> stream = SEAGenerator(random_state=1)
-    >>> # Set the model
-    >>> ht = HoeffdingTreeClassifier()
-    >>> # Set the evaluator
-    >>> evaluator = EvaluatePrequential(max_samples=200,
-    >>>                                 n_wait=1,
-    >>>                                 pretrain_size=1,
-    >>>                                 max_time=1000,
-    >>>                                 show_plot=True,
-    >>>                                 metrics=['accuracy'],
-    >>>                                 data_points_for_classification=True)
-    >>>
-    >>> # Run evaluation
-    >>> evaluator.evaluate(stream=stream, model=ht, model_names=['HT'])
 
     """
 
@@ -328,6 +178,8 @@ class WeakEvaluatePrequential(StreamEvaluator):
 
         update_count = 0
         print('Evaluating...')
+        ready_to_train=False
+        self.pseudo_action = "noisy_label"
         while ((self.global_sample_count < actual_max_samples) & (self._end_time - self._start_time < self.max_time)
                & (self.stream.has_more_samples())):
             try:
@@ -337,8 +189,7 @@ class WeakEvaluatePrequential(StreamEvaluator):
  
                 #evaluate Real label
                 X, y = self.stream.next_sample(self.real_batch_size)
-				#with label
-                label_to_learn = []
+
 
                 if X is not None and y is not None:
                     # Test
@@ -360,15 +211,58 @@ class WeakEvaluatePrequential(StreamEvaluator):
                             self.mean_eval_measurements[j].add_result(y[i], prediction[j][i])
                             self.current_eval_measurements[j].add_result(y[i], prediction[j][i])
                     self._check_progress(actual_max_samples)
+                    ready_to_train = True
 
-                    # Train
+                #Evaluasi Psudo label
+                X2, y2 = self.stream.next_sample(self.pseudo_batch_size)
+                if X2 is not None and y2 is not None:
+                    # variabel penyimpan hasil prediksi
+                    psudo_labels = [[] for _ in range(self.n_models)]
+                    label_prop_model = LabelSpreading()
+                    label_prop_model.fit(X, y)
+                    psudoLabel = label_prop_model.predict(X2)
+                    #start psudo 
+                    '''
+                    for i in range(self.n_models):
+                        try:
+                            # generate the psudolabel
+                            self.running_time_measurements[i].compute_testing_time_begin()
+                            _hasil_prediksi = self.model[i].predict(X2)
+                            psudo_labels[i].extend(_hasil_prediksi)
+                            
+                            _acc = accuracy_score(y2, _hasil_prediksi)
+                            if (not np.isnan(_acc)):
+                                self.psudo_label_accuracy[i].append(_acc)
+                            
+                            self.running_time_measurements[i].compute_testing_time_end()
+
+                        except TypeError:
+                            raise TypeError("Unexpected prediction value from {}".format(type(self.model[i]).__name__))
+                    '''
+                    self.global_sample_count += self.pseudo_batch_size
+                    #logging psudolabel accuracy
+                  
+                    #evaluate the psudo label
+                    '''
+                    for j in range(self.n_models):
+                        for i in range(len(psudo_labels[0])):
+                            self.mean_eval_measurements[j].add_result(y2[i], psudo_labels[j][i])
+                            self.current_eval_measurements[j].add_result(y2[i], psudo_labels[j][i])
+                    '''
+                    self._check_progress(actual_max_samples)
+                    
+                    ready_to_train = True
+
+
+                    
+                if ready_to_train :
                     if first_run:
                         for i in range(self.n_models):
                             if self._task_type != constants.REGRESSION and \
                                self._task_type != constants.MULTI_TARGET_REGRESSION:
                                 # Accounts for the moment of training beginning
                                 self.running_time_measurements[i].compute_training_time_begin()
-                                self.model[i].partial_fit( X, y, self.stream.target_values)
+                                self.model[i].partial_fit(X, y, self.stream.target_values)
                                 # Accounts the ending of training
                                 self.running_time_measurements[i].compute_training_time_end()
                             else:
@@ -382,87 +276,23 @@ class WeakEvaluatePrequential(StreamEvaluator):
                     else:
                         for i in range(self.n_models):
                             self.running_time_measurements[i].compute_training_time_begin()
-                            self.model[i].partial_fit(X, y)
+                            self.model[i].partial_fit(
+                                np.concatenate((X, X2)), np.concatenate((y, psudoLabel)))
+                            '''S
+                            if self.pseudo_action == "noisy_label":
+                                self.model[i].partial_weakfit(X2, psudo_labels[i], X, y)
+                            elif self.pseudo_action == "noisy_label_verification":
+                                self.model[i].partial_weakfit_with_verification(X2, psudo_labels[i], X, y)
+                            elif self.pseudo_action == "noisy_label_hedge":
+                                self.model[i].partial_weakfit(X2, psudo_labels[i], X, y)
+                            '''
                             self.running_time_measurements[i].compute_training_time_end()
                             self.running_time_measurements[i].update_time_measurements(self.batch_size)
 
                     if ((self.global_sample_count % self.n_wait) == 0 or
                             (self.global_sample_count >= actual_max_samples) or
                             (self.global_sample_count / self.n_wait > update_count + 1)):
-                        if prediction is not None:
-                            self._update_metrics()
-                        update_count += 1
-                
-                
-                
-                #without label start
-                X2, y2 = self.stream.next_sample(self.pseudo_batch_size)
-                if X2 is not None and y is not None:
-                    # Test
-                    psudo_prediction = [[] for _ in range(self.n_models)]
-                    #start psudo 
-                    #print("predict psudo label")
-                    for i in range(self.n_models):
-                        try:
-                            # generate the psudolabel
-                            self.running_time_measurements[i].compute_testing_time_begin()
-                            _hasil_prediksi = self.model[i].predict(X2)
-                            psudo_prediction[i].extend(_hasil_prediksi)
-                            #print(self.psudo_label_accuracy[i])
-                            _acc = accuracy_score(y2, _hasil_prediksi)
-                            if (not np.isnan(_acc)):
-                                self.psudo_label_accuracy[i].append(_acc)
-                            label_to_learn.append(_hasil_prediksi)
-                            self.running_time_measurements[i].compute_testing_time_end()
-                        except TypeError:
-                            raise TypeError("Unexpected prediction value from {}".format(type(self.model[i]).__name__))
-                    self.global_sample_count += self.pseudo_batch_size
-                    #logging psudolabel accuracy
-                  
-                    #evaluate the psudo label
-                    for j in range(self.n_models):
-                        for i in range(len(psudo_prediction[0])):
-                            self.mean_eval_measurements[j].add_result(y2[i], psudo_prediction[j][i])
-                            self.current_eval_measurements[j].add_result(y2[i], psudo_prediction[j][i])
-                    self._check_progress(actual_max_samples)
-                    
-                    # Train
-                    if first_run:
-                        for i in range(self.n_models):
-                            if self._task_type != constants.REGRESSION and \
-                               self._task_type != constants.MULTI_TARGET_REGRESSION:
-                                # Accounts for the moment of training beginning
-                                self.running_time_measurements[i].compute_training_time_begin()
-                                self.model[i].partial_fit(X2, y2, self.stream.target_values)
-                                # Accounts the ending of training
-                                self.running_time_measurements[i].compute_training_time_end()
-                            else:
-                                self.running_time_measurements[i].compute_training_time_begin()
-                                self.model[i].partial_fit(X2, y2)
-                                self.running_time_measurements[i].compute_training_time_end()
-
-                            # Update total running time
-                            self.running_time_measurements[i].update_time_measurements(self.batch_size)
-                        first_run = False
-                    else:
-                        for i in range(self.n_models):
-                            self.running_time_measurements[i].compute_training_time_begin()
-                            #if(hasattr(self.model[i], 'partial_weakfit')):
-                            #    self.model[i].partial_weakfit(X2, psudo_prediction[i],X,y)
-                            #else:
-                            #    self.model[i].partial_fit(X2, psudo_prediction[i])
-                            #print("noisy adaptaion")
-
-                            #self.model[i].partial_weakfit(Xtot, Ytot)
-                            self.model[i].partial_weakfit(
-                                X2, psudo_prediction[i], X, y)
-                            self.running_time_measurements[i].compute_training_time_end()
-                            self.running_time_measurements[i].update_time_measurements(self.batch_size)
-
-                    if ((self.global_sample_count % self.n_wait) == 0 or
-                            (self.global_sample_count >= actual_max_samples) or
-                            (self.global_sample_count / self.n_wait > update_count + 1)):
-                        if psudo_prediction is not None:
+                        if psudo_labels is not None:
                             self._update_metrics()
                         update_count += 1
                 #end wof
@@ -485,6 +315,7 @@ class WeakEvaluatePrequential(StreamEvaluator):
 
         if len(set(self.metrics).difference({constants.DATA_POINTS})) > 0:
             self.evaluation_summary()
+            self.evaluation_summary2()
         else:
             print('Done')
 
@@ -493,10 +324,23 @@ class WeakEvaluatePrequential(StreamEvaluator):
 
         return self.model
 
+
+    def evaluation_summary2(self):
+        print('Mean performance:')
+        for i in range(self.n_models):            
+            print('{} {:.4f} {:.4f} {:.3f} {:.3f}'.format(
+                self.model_names[i],
+                self._data_buffer.get_data(metric_id=constants.ACCURACY, data_id=constants.MEAN)[i],
+                self._data_buffer.get_data(metric_id=constants.F1_SCORE, data_id=constants.MEAN)[i],
+                self._data_buffer.get_data(metric_id=constants.RUNNING_TIME, data_id='training_time')[i], 
+                self._data_buffer.get_data(metric_id=constants.RUNNING_TIME, data_id='testing_time')[i]
+            ))
+            
+           
     def partial_fit(self, X, y, classes=None, sample_weight=None):
         """ Partially fit all the models on the given data.
 
-        Parameters
+        Parameters  
         ----------
         X: Numpy.ndarray of shape (n_samples, n_features)
             The data upon which the algorithm will create its model.
