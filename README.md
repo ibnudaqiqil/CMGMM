@@ -1,3 +1,4 @@
+[![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
 
 
 
@@ -7,3 +8,13 @@ The Combine Merge Gaussian Mixture Model (CMGMM) is an incremental classificatio
 if you use this code please cite us at :
 
 >I. D. Id, M. Abe and S. Hara, "Concept Drift Adaptation for Acoustic Scene Classifier Based on Gaussian Mixture Model," 2020 IEEE REGION 10 CONFERENCE (TENCON), 2020, pp. 450-455, doi: 10.1109/TENCON50793.2020.9293766.
+
+
+
+## COPYRIGHT
+
+Copyright (c) 2020 Kazuhiro KOBAYASHI
+
+Released under the MIT license
+
+[https://opensource.org/licenses/mit-license.php](https://opensource.org/licenses/mit-license.php)
